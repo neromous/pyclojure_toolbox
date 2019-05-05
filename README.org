@@ -1,0 +1,137 @@
+#+TITLE: 一个用于实现clojure部分功能的python工具库
+
+这个工具库是我自己用的一些工具函数,  主要实现了clojure的部分特性, 
+
+本工具是受了以下文章的思想的鼓舞, 
+
+[[https://segmentfault.com/a/1190000013967693?utm_source=tag-newest][1.纯函数管道数据流·基本构造方法]]
+
+* 实现特性有
+** -> 的对应实现为arrow
+具体用法请参考clojure的 -> 宏, 能够流程化处理单参数函数和多参数函数, 
+注意 这个可能和arrow库(也就是一个时间管理库冲突, 因此引入的时候要注意更名,这样用起来会更方便例如
+#+BEGIN_SRC python :result output
+  from clojure_tools import arrow as ar
+
+  def a(x):
+      return x+1
+  def b(x):
+      return x*2
+
+  def m(x,y):
+      return x-y
+
+
+  m = ar([
+      3, 
+      a,
+      b,
+      [m, 10]
+  ])
+  print(m)
+#+END_SRC
+
+#+RESULTS:
+: 2
+
+** ->> 宏对应实现为 arrow_first  
+与arrow唯一的区别是函数的参数位置, arrow里默认参数放在最后一个
+arrow_first参数默认放在第一个,
+#+BEGIN_SRC python :result output
+  from clojure_tools import arrow_first as af
+
+  def a(x):
+      return x+1
+  def b(x):
+      return x*2
+
+  def m(x,y):
+      return x-y
+
+
+  m = af([
+      3, 
+      a,
+      b,
+      [m, 10]
+  ])
+  print(m)
+#+END_SRC
+
+#+RESULTS:
+: -2
+
+
+** 针对arrow和arrow_first的改造,  
+由于clojure带有惰性求值机制,但是python声明了函数就会直接执行,所以为了获取惰性求值的机制,于是有了如下的Variable类
+建议用法如下
+#+BEGIN_SRC python :result output
+  from clojure_tools import Variable as f
+
+  def a(x):
+      return x+1
+  def b(x):
+      return x*2
+
+  def m(x,y):
+      return x-y
+
+
+  m = f([
+      3, 
+      a,
+      b,
+      [m, 10]
+  ])
+  print(m.value)
+#+END_SRC
+
+#+RESULTS:
+: -2
+
+注意
+1. Variable 默认调用arrow_first方法, 因此它是默认会把参数放在第一个,
+2. 定义Variable后, 使用.value方法使其求值, 现在支持惰性求值.
+3. Variable支持管道拼接的操作, 示例代码见sample中的使用
+
+
+
+** clojure列表风格的条件判断,(很渣,待完善) 
+
+使用示例, 这个实际不能跑 哈哈 我懒得写准确的使用了
+
+注意, 目前这个conds还不能和Variable 组合起来, 变成管道式选择的, 以后会完善, 大概吧..
+
+#+BEGIN_SRC python
+
+def task_categorier(sample: dict):
+    """
+    分类器, 确定哪类用什么来处理
+    """
+    res = {}
+    need_keys = set([
+        'source_type',
+        'source_url',
+    ])
+    intersecion = set(sample.keys()).intersection(need_keys)
+    if len(intersecion) != len(need_keys):
+        return Exception
+    st = sample.get('source_type')
+    su = sample.get('source_url')
+
+    res = conds(sample, (
+        (st == 'docx', process_docx),
+        (st == 'doc', process_doc),
+        (st == 'pdf', process_pdf),
+        (st == 'url_get', process_url_get),
+        (st == 'url_post', process_url_post),
+    ))
+    return res
+
+
+#+END_SRC
+
+
+
+
+
